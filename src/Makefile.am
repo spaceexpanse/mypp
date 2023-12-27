@@ -6,6 +6,21 @@ libmypp_la_CXXFLAGS = \
 libmypp_la_LIBADD = \
   $(MARIADB_LIBS) $(GLOG_LIBS)
 libmypp_la_SOURCES = \
+  url.cpp \
   mypp.cpp
 mypp_HEADERS = \
-  mypp.hpp
+  error.hpp \
+  mypp.hpp \
+  url.hpp
+
+check_PROGRAMS = tests
+TESTS = tests
+
+tests_CXXFLAGS = \
+  $(GLOG_CFLAGS) \
+  $(GTEST_CFLAGS)
+tests_LDADD = $(builddir)/libmypp.la \
+  $(GLOG_LIBS) \
+  $(GTEST_LIBS)
+tests_SOURCES = \
+  url_tests.cpp
