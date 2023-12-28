@@ -22,6 +22,8 @@ public:
     : std::runtime_error (msg)
   {}
 
+  Error (const Error&) = default;
+
 };
 
 } // namespace mypp

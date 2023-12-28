@@ -6,11 +6,11 @@ libmypp_la_CXXFLAGS = \
 libmypp_la_LIBADD = \
   $(MARIADB_LIBS) $(GLOG_LIBS)
 libmypp_la_SOURCES = \
-  url.cpp \
-  mypp.cpp
+  connection.cpp \
+  url.cpp
 mypp_HEADERS = \
+  connection.hpp \
   error.hpp \
-  mypp.hpp \
   url.hpp
 
 check_PROGRAMS = tests
