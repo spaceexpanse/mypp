@@ -37,7 +37,9 @@ PKG_CHECK_MODULES([GTEST], [gtest_main])
 
 AC_CONFIG_FILES([
   Makefile \
-  src/Makefile
+  src/Makefile \
+  \
+  mypp.pc
 ])
 AC_OUTPUT
 

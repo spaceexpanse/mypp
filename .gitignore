@@ -25,3 +25,5 @@ Makefile.in
 *.lo
 tests
 tests.trs
+
+mypp.pc
