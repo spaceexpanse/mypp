@@ -7,10 +7,12 @@ libmypp_la_LIBADD = \
   $(MARIADB_LIBS) $(GLOG_LIBS)
 libmypp_la_SOURCES = \
   connection.cpp \
+  statement.cpp \
   url.cpp
 mypp_HEADERS = \
   connection.hpp \
   error.hpp \
+  statement.hpp \
   url.hpp
 
 check_PROGRAMS = tests
