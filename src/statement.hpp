@@ -8,6 +8,7 @@
 #include <mysql.h>
 
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace mypp
@@ -74,6 +75,18 @@ private:
    */
   std::vector<std::string> stringParams;
 
+  /** For output parameters, whether or not they are null.  */
+  std::vector<my_bool> isNull;
+
+  /** The result metadata, if the statement has been queried.  */
+  MYSQL_RES* resMeta = nullptr;
+
+  /** The result metadata column fields.  */
+  std::vector<const MYSQL_FIELD*> resFields;
+
+  /** Map of result column names to their indices.  */
+  std::unordered_map<std::string, unsigned> columnsByName;
+
   /**
    * Initialises the statement.
    */
@@ -83,6 +96,16 @@ private:
    * Cleans up the statement.
    */
   void CleanUp ();
+
+  /**
+   * Resizes the params vector, and zeros it.
+   */
+  void ResizeParams (size_t num);
+
+  /**
+   * Returns the index of the named output column.
+   */
+  unsigned GetIndex (const std::string& col) const;
 
 public:
 
@@ -145,6 +168,33 @@ public:
    * Executes the statement, not expecting a result (e.g. an UPDATE).
    */
   void Execute ();
+
+  /**
+   * Executes the statement, expecting a result (i.e. a SELECT).
+   */
+  void Query ();
+
+  /**
+   * Fetches the next result row.  Returns false if no more is available.
+   */
+  bool Fetch ();
+
+  /**
+   * Checks if the given output column of the current result row is null.
+   */
+  bool IsNull (const std::string& col) const;
+
+  /**
+   * Returns the value of the given output column in the current result row.
+   * It must not be null and the type must match.
+   */
+  template <typename T>
+    T Get (const std::string& col) const;
+
+  /**
+   * Returns the value of the given output column as BLOB.
+   */
+  std::string GetBlob (const std::string& col) const;
 
 };
 

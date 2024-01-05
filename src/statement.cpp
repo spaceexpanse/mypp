@@ -72,8 +72,25 @@ Statement::Init ()
 void
 Statement::CleanUp ()
 {
+  if (resMeta != nullptr)
+    {
+      mysql_free_result (resMeta);
+      resMeta = nullptr;
+    }
+
   mysql_stmt_close (stmt);
   stmt = nullptr;
+}
+
+void
+Statement::ResizeParams (const size_t num)
+{
+  params.resize (num);
+  std::memset (params.data (), 0, num * sizeof (MYSQL_BIND));
+
+  intParams.resize (num);
+  stringParams.resize (num);
+  isNull.resize (num);
 }
 
 MYSQL_STMT*
@@ -99,12 +116,7 @@ Statement::Prepare (unsigned numParams, const std::string& sql)
     throw StmtError (stmt);
 
   state = State::PREPARED;
-
-  params.resize (numParams);
-  std::memset (params.data (), 0, numParams * sizeof (MYSQL_BIND));
-
-  intParams.resize (numParams);
-  stringParams.resize (numParams);
+  ResizeParams (numParams);
 }
 
 MYSQL_BIND*
@@ -174,6 +186,147 @@ Statement::Execute ()
   params.clear ();
   intParams.clear ();
   stringParams.clear ();
+}
+
+void
+Statement::Query ()
+{
+  Execute ();
+  state = State::QUERIED;
+
+  my_bool update = 1;
+  CHECK_EQ (mysql_stmt_attr_set (stmt, STMT_ATTR_UPDATE_MAX_LENGTH, &update),
+            0);
+
+  if (mysql_stmt_store_result (stmt) != 0)
+    throw StmtError (stmt);
+
+  resMeta = mysql_stmt_result_metadata (stmt);
+  if (resMeta == nullptr)
+    throw Error ("No result metadata returned for statement query");
+
+  const unsigned numFields = mysql_num_fields (resMeta);
+  ResizeParams (numFields);
+
+  /* We process all fields.  While doing so, we store their names, so the user
+     can look up result fields by name (instead of index).  And we also
+     check their type, and apply an appropriate bind for them to local
+     memory (in the instance).  This abstracts the binding part away from
+     the caller, and they can just step through the result and get the
+     values via function calls.  */
+  for (unsigned i = 0; i < numFields; ++i)
+    {
+      const auto* field = mysql_fetch_field_direct (resMeta, i);
+      resFields.push_back (field);
+      columnsByName.emplace (field->name, i);
+
+      auto* bnd = &params[i];
+      bnd->is_null = &isNull[i];
+      switch (field->type)
+        {
+        case MYSQL_TYPE_TINY:
+        case MYSQL_TYPE_SHORT:
+        case MYSQL_TYPE_LONG:
+        case MYSQL_TYPE_INT24:
+        case MYSQL_TYPE_LONGLONG:
+          bnd->buffer_type = MYSQL_TYPE_LONGLONG;
+          bnd->buffer = &intParams[i];
+          break;
+
+        case MYSQL_TYPE_STRING:
+        case MYSQL_TYPE_VAR_STRING:
+        case MYSQL_TYPE_TINY_BLOB:
+        case MYSQL_TYPE_BLOB:
+        case MYSQL_TYPE_MEDIUM_BLOB:
+        case MYSQL_TYPE_LONG_BLOB:
+          stringParams[i].resize (field->max_length);
+          bnd->buffer_type = MYSQL_TYPE_LONG_BLOB;
+          bnd->buffer = const_cast<char*> (stringParams[i].data ());
+          bnd->buffer_length = stringParams[i].size ();
+          bnd->length = GetBindLengthPtr (&intParams[i]);
+          break;
+
+        default:
+          LOG (FATAL)
+              << "Output type of " << field->type << " is not yet implemented";
+        }
+    }
+
+  if (!params.empty () && mysql_stmt_bind_result (stmt, params.data ()) != 0)
+    throw StmtError (stmt);
+}
+
+bool
+Statement::Fetch ()
+{
+  CHECK (state == State::QUERIED) << "Statement is not in queried state";
+
+  const int res = mysql_stmt_fetch (stmt);
+  if (res == MYSQL_NO_DATA)
+    {
+      state = State::FINISHED;
+      return false;
+    }
+
+  /* Truncation should be impossible since we set the buffer sizes
+     explicitly large enough.  */
+  CHECK_NE (res, MYSQL_DATA_TRUNCATED) << "MySQL data truncated";
+
+  if (res != 0)
+    throw StmtError (stmt);
+
+  return true;
+}
+
+unsigned
+Statement::GetIndex (const std::string& col) const
+{
+  CHECK (state == State::QUERIED) << "Statement is not in queried state";
+  auto mit = columnsByName.find (col);
+  CHECK (mit != columnsByName.end ())
+      << "Column '" << col << "' is not in the result set";
+  return mit->second;
+}
+
+bool
+Statement::IsNull (const std::string& col) const
+{
+  return isNull[GetIndex (col)];
+}
+
+template <>
+  int64_t
+  Statement::Get<int64_t> (const std::string& col) const
+{
+  const unsigned ind = GetIndex (col);
+  CHECK (!isNull[ind]) << "Column '" << col << "' is null";
+  CHECK_EQ (params[ind].buffer_type, MYSQL_TYPE_LONGLONG)
+      << "Column '" << col << "' is not of integer type";
+
+  const auto value = intParams[ind];
+  CHECK_GE (value, std::numeric_limits<int64_t>::min ())
+      << "Value of '" << col << "' is out of bounds for int64_t";
+  CHECK_LE (value, std::numeric_limits<int64_t>::max ())
+      << "Value of '" << col << "' is out of bounds for int64_t";
+  return value;
+}
+
+template <>
+  std::string
+  Statement::Get<std::string> (const std::string& col) const
+{
+  const unsigned ind = GetIndex (col);
+  CHECK (!isNull[ind]) << "Column '" << col << "' is null";
+  CHECK_EQ (params[ind].buffer_type, MYSQL_TYPE_LONG_BLOB)
+      << "Column '" << col << "' is not of string type";
+
+  return stringParams[ind].substr (0, intParams[ind]);
+}
+
+std::string
+Statement::GetBlob (const std::string& col) const
+{
+  return Get<std::string> (col);
 }
 
 } // namespace mypp
