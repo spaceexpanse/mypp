@@ -8,11 +8,13 @@ libmypp_la_LIBADD = \
 libmypp_la_SOURCES = \
   connection.cpp \
   statement.cpp \
+  tempdb.cpp \
   url.cpp
 mypp_HEADERS = \
   connection.hpp \
   error.hpp \
   statement.hpp \
+  tempdb.hpp \
   url.hpp
 
 check_PROGRAMS = tests
