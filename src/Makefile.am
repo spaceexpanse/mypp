@@ -21,10 +21,11 @@ check_PROGRAMS = tests
 TESTS = tests
 
 tests_CXXFLAGS = \
-  $(GLOG_CFLAGS) \
+  $(MARIADB_CFLAGS) $(GLOG_CFLAGS) \
   $(GTEST_CFLAGS)
 tests_LDADD = $(builddir)/libmypp.la \
-  $(GLOG_LIBS) \
+  $(MARIADB_LIBS) $(GLOG_LIBS) \
   $(GTEST_LIBS)
 tests_SOURCES = \
+  statement_tests.cpp \
   url_tests.cpp
