@@ -44,6 +44,20 @@ Connection::~Connection ()
 }
 
 void
+Connection::UseClientCertificate (const std::string& ca,
+                                  const std::string& cert,
+                                  const std::string& key)
+{
+  CHECK (!connected) << "MySQL connection is already up";
+
+  /* mysql_options only fails if the option is invalid, which should not
+     happen here (unless it is a bug and not runtime error).  */
+  CHECK_EQ (mysql_options (handle, MYSQL_OPT_SSL_CA, ca.c_str ()), 0);
+  CHECK_EQ (mysql_options (handle, MYSQL_OPT_SSL_CERT, cert.c_str ()), 0);
+  CHECK_EQ (mysql_options (handle, MYSQL_OPT_SSL_KEY, key.c_str ()), 0);
+}
+
+void
 Connection::Connect (const std::string& host, const unsigned port,
                      const std::string& user, const std::string& password,
                      const std::string& db)
