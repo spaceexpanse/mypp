@@ -42,6 +42,14 @@ public:
   ~Connection ();
 
   /**
+   * Sets config for using a client certificate.  Must be called before
+   * Connect is called.  The arguments must be paths to the corresponding
+   * files holding the CA certificate, public certificate and private key.
+   */
+  void UseClientCertificate (const std::string& ca, const std::string& cert,
+                             const std::string& key);
+
+  /**
    * Establishes a connection to a MySQL database.  This must only be called
    * once (not if already connected).  If db is the empty string, then no
    * default database is set.

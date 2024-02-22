@@ -1,4 +1,4 @@
-// Copyright (C) 2023 The Xaya developers
+// Copyright (C) 2023-2024 The Xaya developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -34,12 +34,62 @@ ParsePort (const std::string& str, unsigned& port)
   return output.str () == str;
 }
 
+/**
+ * Parses a "key=value" string as part of the arguments.
+ */
+bool
+ParseOneOption (const std::string& str, std::string& key, std::string& value)
+{
+  const size_t sep = str.find ('=');
+  if (sep == std::string::npos)
+    return false;
+
+  key = str.substr (0, sep);
+  value = str.substr (sep + 1);
+
+  return true;
+}
+
+/**
+ * Parses URL options into a map.
+ */
+bool
+ParseOptions (const std::string& str, std::map<std::string, std::string>& res)
+{
+  res.clear ();
+  if (str.empty ())
+    return true;
+
+  std::string key;
+  std::string value;
+
+  size_t start = 0;
+  while (true)
+    {
+      const size_t sep = str.find ('&', start);
+      if (sep == std::string::npos)
+        {
+          if (!ParseOneOption (str.substr (start), key, value))
+            return false;
+          res.emplace (key, value);
+          return true;
+        }
+
+      CHECK_GE (sep, start);
+      if (!ParseOneOption (str.substr (start, sep - start), key, value))
+        return false;
+      res.emplace (key, value);
+
+      start = sep + 1;
+    }
+
+  return true;
+}
+
 } // anonymous namespace
 
 void
-ParseUrl (const std::string& url, std::string& host, unsigned& port,
-          std::string& user, std::string& password,
-          std::string& database, std::string& table)
+UrlParser::Parse (const std::string& url)
 {
   const std::string prefix = "mysql://";
   if (url.substr (0, prefix.size ()) != prefix)
@@ -71,18 +121,38 @@ ParseUrl (const std::string& url, std::string& host, unsigned& port,
   if (!ParsePort (hostPort.substr (hostColonPos + 1), port))
     throw Error ("URL contains invalid port");
 
-  const size_t tableSep = url.find ('/', pathStart + 1);
+  const size_t optStart = url.find ('?', pathStart + 1);
+  CHECK_GT (optStart, pathStart);
+  std::string path;
+  std::string opt;
+  if (optStart == std::string::npos)
+    {
+      path = url.substr (pathStart + 1);
+      opt = "";
+    }
+  else
+    {
+      path = url.substr (pathStart + 1, optStart - pathStart - 1);
+      opt = url.substr (optStart + 1);
+    }
+
+  const size_t tableSep = path.find ('/');
   if (tableSep == std::string::npos)
     {
-      database = url.substr (pathStart + 1);
+      database = path;
       table = "";
     }
   else
     {
-      CHECK_GT (tableSep, pathStart);
-      database = url.substr (pathStart + 1, tableSep - pathStart - 1);
-      table = url.substr (tableSep + 1);
+      database = path.substr (0, tableSep);
+      table = path.substr (tableSep + 1);
     }
+
+  if (database.empty ())
+    throw Error ("URL contains no database");
+
+  if (!ParseOptions (opt, options))
+    throw Error ("Invalid options in URL");
 }
 
 } // namespace mypp

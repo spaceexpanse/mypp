@@ -22,13 +22,13 @@ TempDb::TempDb (const std::string& host, const unsigned port,
 
 TempDb::TempDb (const std::string& url)
 {
-  std::string host, user, password, db, table;
-  unsigned port;
+  UrlParser parser;
+  parser.Parse (url);
 
-  ParseUrl (url, host, port, user, password, db, table);
-  CHECK (table.empty ()) << "Explicit table passed to TempDb";
+  CHECK (!parser.HasTable ()) << "Explicit table passed to TempDb";
 
-  Construct (host, port, user, password, db);
+  Construct (parser.GetHost (), parser.GetPort (),
+             parser.GetUser (), parser.GetPassword (), parser.GetDatabase ());
 }
 
 TempDb::~TempDb ()
