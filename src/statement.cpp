@@ -151,6 +151,13 @@ template <>
 
 template <>
   void
+  Statement::Bind<bool> (const unsigned num, const bool& val)
+{
+  Bind<int64_t> (num, val);
+}
+
+template <>
+  void
   Statement::Bind<std::string> (const unsigned num, const std::string& val)
 {
   BindBlob (num, val);
@@ -309,6 +316,14 @@ template <>
   CHECK_LE (value, std::numeric_limits<int64_t>::max ())
       << "Value of '" << col << "' is out of bounds for int64_t";
   return value;
+}
+
+template <>
+  bool
+  Statement::Get<bool> (const std::string& col) const
+{
+  const auto val = Get<int64_t> (col);
+  return val != 0;
 }
 
 template <>

@@ -150,6 +150,49 @@ TEST_F (StatementTests, IntTypes)
   EXPECT_FALSE (stmt.Fetch ());
 }
 
+TEST_F (StatementTests, Bool)
+{
+  db.Get ().Execute (R"(
+    CREATE TABLE `test` (
+      `id` INT NOT NULL PRIMARY KEY,
+      `boolean` BOOL NULL
+    )
+  )");
+
+  Statement stmt(*db.Get ());
+  stmt.Prepare (3, R"(
+    INSERT INTO `test`
+      (`id`, `boolean`) VALUES
+      (1, ?),
+      (2, ?),
+      (3, ?)
+  )");
+  stmt.Bind (0, true);
+  stmt.Bind (1, false);
+  stmt.BindNull (2);
+  stmt.Execute ();
+
+  stmt.Prepare (0, R"(
+    SELECT `boolean`
+      FROM `test`
+      ORDER BY `id`
+  )");
+  stmt.Query ();
+
+  ASSERT_TRUE (stmt.Fetch ());
+  EXPECT_FALSE (stmt.IsNull ("boolean"));
+  EXPECT_TRUE (stmt.Get<bool> ("boolean"));
+
+  ASSERT_TRUE (stmt.Fetch ());
+  EXPECT_FALSE (stmt.IsNull ("boolean"));
+  EXPECT_FALSE (stmt.Get<bool> ("boolean"));
+
+  ASSERT_TRUE (stmt.Fetch ());
+  EXPECT_TRUE (stmt.IsNull ("boolean"));
+
+  EXPECT_FALSE (stmt.Fetch ());
+}
+
 TEST_F (StatementTests, Blob)
 {
   db.Get ().Execute (R"(
