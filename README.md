@@ -1,4 +1,4 @@
-# MyPP
+# MyPP 
 
 MyPP is a simple C++ wrapper around the
 [MariaDB C connector](https://mariadb.com/kb/en/mariadb-connector-c/).  It
