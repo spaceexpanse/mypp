@@ -51,6 +51,9 @@ private:
   /** The state of this statement.  */
   State state;
 
+  /** Number of input parameters in the prepared SQL.  */
+  unsigned numParams;
+
   /**
    * The parameter BIND structs.  They are used for input parameters before
    * the statement is executed, and then for output parameters afterwards.
@@ -142,6 +145,13 @@ public:
    * be done to "reset" it and make it reusable.
    */
   void Prepare (unsigned numParams, const std::string& sql);
+
+  /**
+   * Resets the statement back to the state after initially being prepared,
+   * with all bindings cleared as well.  New parameters can be bound, and then
+   * the statement can be re-executed without re-preparing the SQL string.
+   */
+  void Reset ();
 
   /**
    * Returns the raw MYSQL_BIND struct for the given parameter.

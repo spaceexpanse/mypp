@@ -82,6 +82,50 @@ TEST_F (StatementTests, BasicUpdateAndQuery)
   EXPECT_FALSE (stmt.Fetch ());
 }
 
+TEST_F (StatementTests, ResetAndReusePreparedStatement)
+{
+  db.Get ().Execute (R"(
+    CREATE TABLE `test` (
+      `id` INT NOT NULL PRIMARY KEY,
+      `name` VARCHAR(64) NOT NULL
+    );
+  )");
+
+  Statement stmt(*db.Get ());
+  stmt.Prepare (2, R"(
+    INSERT INTO `test`
+      (`id`, `name`)
+      VALUES (?, ?)
+  )");
+
+  stmt.Bind<int64_t> (0, 10);
+  stmt.Bind<std::string> (1, "foo");
+  stmt.Execute ();
+
+  stmt.Reset ();
+  stmt.Bind<int64_t> (0, 20);
+  stmt.Bind<std::string> (1, "bar");
+  stmt.Execute ();
+
+  stmt.Prepare (1, R"(
+    SELECT `name`
+      FROM `test`
+      WHERE `id` = ?
+  )");
+
+  stmt.Bind<int64_t> (0, 10);
+  stmt.Query ();
+  ASSERT_TRUE (stmt.Fetch ());
+  EXPECT_EQ (stmt.Get<std::string> ("name"), "foo");
+
+  stmt.Reset ();
+  stmt.Bind<int64_t> (0, 20);
+  stmt.Query ();
+  ASSERT_TRUE (stmt.Fetch ());
+  EXPECT_EQ (stmt.Get<std::string> ("name"), "bar");
+  EXPECT_FALSE (stmt.Fetch ());
+}
+
 TEST_F (StatementTests, Null)
 {
   db.Get ().Execute (R"(

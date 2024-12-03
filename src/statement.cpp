@@ -102,7 +102,7 @@ Statement::operator* ()
 }
 
 void
-Statement::Prepare (unsigned numParams, const std::string& sql)
+Statement::Prepare (unsigned n, const std::string& sql)
 {
   if (state == State::FINISHED)
     {
@@ -113,6 +113,25 @@ Statement::Prepare (unsigned numParams, const std::string& sql)
   CHECK (state == State::INITIALISED) << "Statement is already prepared";
 
   if (mysql_stmt_prepare (stmt, sql.data (), sql.size ()) != 0)
+    throw StmtError (stmt);
+
+  state = State::PREPARED;
+  numParams = n;
+  ResizeParams (numParams);
+}
+
+void
+Statement::Reset ()
+{
+  CHECK (state != State::INITIALISED) << "Statement is not prepared yet";
+
+  if (resMeta != nullptr)
+    {
+      mysql_free_result (resMeta);
+      resMeta = nullptr;
+    }
+
+  if (mysql_stmt_reset (stmt) != 0)
     throw StmtError (stmt);
 
   state = State::PREPARED;
